@@ -16,12 +16,14 @@
 # 
 #===============================================================================
 
-PluginManager.register({                                                 
-  :name    => "Time of Day Introduction",                                        
-  :version => "1.0",                                                     
-  :link    => "https://www.pokecommunity.com/showthread.php?p=10369544",             
-  :credits => "FL"
-})  
+if !PluginManager.installed?("Time of Day Introduction")
+  PluginManager.register({                                                 
+    :name    => "Time of Day Introduction",                                        
+    :version => "1.0.1",                                                     
+    :link    => "https://www.pokecommunity.com/showthread.php?p=10369544",             
+    :credits => "FL"
+  })
+end
 
 module TimeOfDayIntroduction
   # Player can skip when true
@@ -86,6 +88,30 @@ module TimeOfDayIntroduction
       if count != 1
         raise "For time #{time.strftime("%I:%M %p")} there is #{count} correct configurations. There must be only one."
       end
+    end
+  end
+
+  def self.temp
+    return $game_temp || $PokemonTemp # Essentials v19- compatibility
+  end
+
+  def self.on_map_update
+    return if (temp.in_menu || temp.in_battle || temp.message_window_showing)
+    return if $game_player.move_route_forcing || pbMapInterpreterRunning?
+    return if !GameData::MapMetadata.exists?($game_map.map_id) || !GameData::MapMetadata.get($game_map.map_id).outdoor_map
+    return if temp.last_time_of_day && TimeOfDayIntroduction.get_conf == temp.last_time_of_day
+    temp.last_time_of_day = TimeOfDayIntroduction.get_conf
+    temp.last_time_of_day_yday = pbGetTimeNow.yday
+    return if TimeOfDayIntroduction::SHOW_ONLY_WHEN_CHANGED && temp.last_time_of_day_yday != pbGetTimeNow.yday
+    frameCount = Graphics.frame_count
+    Graphics.update
+    has_freeze = frameCount == Graphics.frame_count
+    if has_freeze
+      return if !TimeOfDayIntroduction::SHOW_AT_GAME_LOAD
+      Graphics.transition(0)
+      TimeOfDayIntroduction.start_scene
+    else 
+      pbFadeOutIn(99999) { TimeOfDayIntroduction.start_scene }
     end
   end
  
@@ -167,35 +193,10 @@ module TimeOfDayIntroduction
   def self.start_scene
     scene=Scene.new
     screen=Screen.new(scene)
-    screen.start_screen($PokemonTemp.last_time_of_day)
+    screen.start_screen(temp.last_time_of_day)
     PBDayNight.recache_tone # Force a tone recache
     pbRefreshSceneMap
   end
-end 
- 
-Events.onMapUpdate += proc { |_sender,_e|
-  next if $game_temp.in_menu || $game_temp.in_battle || $game_temp.message_window_showing
-  next if $game_player.move_route_forcing || pbMapInterpreterRunning?
-  next if !GameData::MapMetadata.exists?($game_map.map_id) || !GameData::MapMetadata.get($game_map.map_id).outdoor_map
-  next if $PokemonTemp.last_time_of_day && TimeOfDayIntroduction.get_conf == $PokemonTemp.last_time_of_day
-  $PokemonTemp.last_time_of_day = TimeOfDayIntroduction.get_conf
-  $PokemonTemp.last_time_of_day_yday = pbGetTimeNow.yday
-  next if TimeOfDayIntroduction::SHOW_ONLY_WHEN_CHANGED && $PokemonTemp.last_time_of_day_yday != pbGetTimeNow.yday
-  frameCount = Graphics.frame_count
-  Graphics.update
-  has_freeze = frameCount == Graphics.frame_count
-  if has_freeze
-    next if !TimeOfDayIntroduction::SHOW_AT_GAME_LOAD
-    Graphics.transition(0)
-    TimeOfDayIntroduction.start_scene
-  else 
-    pbFadeOutIn(99999) { TimeOfDayIntroduction.start_scene }
-  end
-}
- 
-class PokemonTemp
-  attr_accessor :last_time_of_day
-  attr_accessor :last_time_of_day_yday
 end 
   
 module PBDayNight
@@ -203,3 +204,20 @@ module PBDayNight
     getToneInternal
   end
 end
+ 
+# Essentials v19- compatibility
+if defined?(Events) && Events.respond_to?(:onMapUpdate) 
+  Events.onMapUpdate += proc { |_sender,_e|
+    TimeOfDayIntroduction.on_map_update
+  }
+else
+  EventHandlers.add(:on_frame_update, :time_of_day_introduction, proc {
+    TimeOfDayIntroduction.on_map_update
+  })
+end
+
+Game_Temp = PokemonTemp if !defined?(Game_Temp) 
+class Game_Temp
+  attr_accessor :last_time_of_day
+  attr_accessor :last_time_of_day_yday
+end 
