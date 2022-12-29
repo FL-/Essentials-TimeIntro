@@ -5,29 +5,7 @@
 # This script is for Pokémon Essentials. It show time of day message and 
 # image (i.e. "Day", "Night"). 
 #
-#== INSTALLATION ===============================================================
-#
-# Put it above main OR convert into a plugin.
-#
-#== NOTES ======================================================================
-#
-# The intro is displayed when player came outside and time was changed and when
-# time change and player already is outside.
-#
-# You can create a "Time Intro" folder at Graphics/Pictures and put the day.png
-# and night.png pictures to show as intro images. If you don't put, the message
-# will be centralized on a black background.
-# 
 #===============================================================================
-
-if !PluginManager.installed?("Time of Day Introduction")
-  PluginManager.register({                                                 
-    :name    => "Time of Day Introduction",                                        
-    :version => "1.0.2",                                                     
-    :link    => "https://www.pokecommunity.com/showthread.php?t=453548",             
-    :credits => "FL"
-  })
-end
 
 module TimeIntro
   # Player can skip when true
